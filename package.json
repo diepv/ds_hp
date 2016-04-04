@@ -1,0 +1,12 @@
+{
+  "name": "deepstreamHP",
+  "private": true,
+  "scripts": {
+    "start": "meteor run"
+  },
+  "dependencies": {
+    "lda": "^0.1.6",
+    "meteor-node-stubs": "~0.2.0",
+    "nlp_compromise": "^4.5.1"
+  }
+}

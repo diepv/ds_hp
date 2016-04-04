@@ -1,0 +1,48 @@
+/* CSS declarations go here */
+#bubbleGraph{
+    /*background-color:rgba(20,100,200,0.);*/
+}
+.title{
+    font-family: Georgia, serif;
+    font-size:30px;
+    fill:rgba(255,255,255,0.6);
+}
+.title:hover{
+    fill:rgba(200,130,220,0.8);
+
+}
+form{
+    margin:0px;
+    padding:0px;
+    left:30%;
+}
+
+#searchQueryInput{
+    width:30%;
+    left:35%;
+    display: inline-block;
+    font-variant: small-caps;
+    font-size: 14px;
+}
+#filterDropDown{
+    border: 1px solid lavender;
+    border-radius:0px;
+    background-color: #454545;
+    color:white;
+    font-style: italic;
+    height:30px;
+    display: inline-block;
+    left:20%;
+}
+#filterDropDown select{
+    border-radius:0px;
+}
+#textLabel{
+    margin-top:5px;
+    display: block;
+    left:0px;
+    font-family: Georgia, serif;
+    font-size:14px;
+    color:gray;
+
+}

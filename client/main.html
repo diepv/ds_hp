@@ -1,0 +1,40 @@
+<head>
+    <title>draft1</title>
+</head>
+
+<body>
+<!--<h1>so so close</h1>-->
+<form>
+    <select name="filterStandIn" id="filterDropDown">
+        <option>USA</option>
+        <option>NOT USA</option>
+    </select>
+    <input value="search" name="search-query" id="searchQueryInput" />
+    <label id="textLabel"></label>
+</form>
+{{> dataCheck}}
+<audio id="sound"></audio>
+{{> networkGraph}}
+{{> bubbleGraph}}
+
+</body>
+<template name="networkGraph">
+
+    <svg id="networkGraph">
+    </svg>
+
+</template>
+<template name="bubbleGraph">
+
+    <svg id="bubbleGraph">
+    </svg>
+
+</template>
+<template name="dataCheck">
+    <div id='dataList'>
+			<p id='textArea'></p>
+				<ol id='list'>
+				</ol>
+		</div>
+</template>
+
