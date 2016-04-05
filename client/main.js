@@ -2,10 +2,30 @@ import { Template } from 'meteor/templating';
 import { ReactiveVar } from 'meteor/reactive-var';
 
 import './main.html';
+//import { Nodes } from '../imports/lib/collections.js';
+//import { Links } from '../imports/lib/collections.js';
+const Nodes = new Mongo.Collection('nodes');
+const Links = new Mongo.Collection('links');
 
-// if (Meteor.isClient) {
-    // counter starts at 0
-    // Session.setDefault('counter', 0);
+ if (Meteor.isClient) {
+     //counter starts at 0
+     //Session.setDefault('counter', 0);
+     Meteor.subscribe("nodeslinks", function(){
+         console.log("NODES ",Nodes.find().count());
+         console.log("Links ",Links.find().count());
+         runGraph();
+     });//, function(){
+         //console.log("NODES! ", Nodes.find().count());
+         //console.log(states, states.find(), states.find().fetch());
+     //});
+     //Meteor.subscribe("links");//, function(){
+         //console.log("LINKS! ", Links.find().count());
+         //console.log(states, states.find(), states.find().fetch());
+     //});
+     //if(j.ready()){
+     //    console.log(" J READY");
+     //    //console.log("H NODES: ",Nodes.find().count());
+     //}
 
      Template.bubbleGraph.onRendered(function(){
 			 console.log('bubble graph start timestamp : '+Date.now());
@@ -508,17 +528,23 @@ import './main.html';
 			 console.log('bubble graph end timestamp : '+Date.now());
 
     });
-		
-     Template.networkGraph.onRendered(function(){
-         Meteor.call('processData', function(err,d){
+
+    //Template.networkGraph.onRendered(
+        var runGraph = function(){
+         //Meteor.call('processData', function(err,d){
+
+        console.log("NODES" , Nodes.find().count());
+    var d = {'nodes': Nodes.find().fetch(), 'links': Links.find().fetch()};
+         console.log('D! ', d);
+    var err = null;
              console.log(err);
              if(err){
                  console.log("ERROR!! :(");
              }else{
-                 console.log('process data call results :', d);
 
-                 var height = 600;
-                 var width = 900;
+
+                 var height = 1200;
+                 var width = 1800;
 
                  var data = d;
 
@@ -551,21 +577,22 @@ import './main.html';
                      edges.push({
                          source:sourcenode,
                          target:targetnode,
+                         topic: e.topic,
                          value: 5
                      });
                  });
-
+                console.log('rehashed nodes: ',nodes);
+                console.log('rehashed links: ',links);
                  var force = d3.layout.force();
-                 force.charge(-180)
-                     .gravity(0.1)
+                 force.charge(-200)
+                     .gravity(0.05)
                      .size([width,height]);
 
                  force.nodes(data.nodes)
-                     .links(edges).linkDistance(function(d){
-                         return 130;
-                     }).start();
+                     .links(edges)
+                     .start();
 
-                 var viewerScale = d3.scale.linear().domain([0,10000]).range([10,100]);
+                 var viewerScale = d3.scale.linear().domain([0,10000]).range([30,150]);
 
                  var nodes = svg.selectAll('.nodeGroup')
                      .data(data.nodes)
@@ -584,23 +611,45 @@ import './main.html';
                      .attr('class','node');
 
                  nodes.append('text')
-                     .style('fill','black')
-                     .text(function(d){return d.currentViewers;});
+                     .style('fill','none')
+                     .text(function(d){return d.title;});
 
                  var links = svg.selectAll('.link').data(edges).enter()
-                     .append('line')
-                     .attr('class','link')
-                     .style('stroke', 'pink')
-                     .style('stroke-width', 3);
+                     .append('g')
+                     .attr('class','link');
+
+                 links.append('line')
+                     .attr('class','linkPath')
+                     .style('stroke', 'black')
+                     .style('stroke-width', function(d){
+                         return d.topic.length+3;
+                     });
+
+                 links.append('text')
+                     .attr('class','topicLabel')
+                     .style('fill','blue')
+                     .text(function(d){
+                         return d.topic;
+                     });
+
+
 
 
 
                  force.on('tick', function() {
                     // coorindates for link is source and target x/y coordinates
-                     links.attr('x1', function(d){ return d.source.x; })
+                     links.selectAll('.linkPath').attr('x1', function(d){ return d.source.x; })
                           .attr('y1', function(d){ return d.source.y; })
                           .attr('x2', function(d){ return d.target.x; })
                           .attr('y2', function(d){ return d.target.y; });
+                     links.selectAll('.topicLabel')
+                         .attr('x',function(d){
+                             return d.source.x;
+                         })
+                         .attr('y', function(d){
+                             return d.source.y;
+                         })
+                     ;
 
                      //coordinates for ndoes are set by the calculated position (d3 layout provided)
                     nodes.attr('transform', function(d){
@@ -618,14 +667,12 @@ import './main.html';
 
              }
 
-         });
-     });
-		Template.dataCheck.onRendered(function(){
+         //});
+     };
 
-			});
 
-// }
-//
+ }
+////
 //if (Meteor.isServer) {
 //    Meteor.startup(function () {
 //        // code to run on server at startup
