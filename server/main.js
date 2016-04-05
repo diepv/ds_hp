@@ -8,22 +8,122 @@ import { Mongo } from 'meteor/mongo';
 //export const Nodes = new Mongo.Collection('nodes');
 //export const Links = new Mongo.Collection('links');
 
+//TO DO
+/*
+* 1. separate link generation from code so that nodes are made but not links (in links database)
+* 2. create topics (generated when nodes are added) database where:
+*   (-topic-):
+*   {
+*       nodeIds:[id1,id2,...,idn]
+*   }
+* 3. Process for creating links 'on the fly'
+*  a. filter to retrieve max 300 nodes from node database & empty links database (prepping for new links)
+*  b. for each node, create dictionaryObject:
+*   (-topic-): [id1, id4, idx]
+*  c. create (and upsert) link for each topic following structure:
+*   {source: id3, target: id8, value: (-# of topics they have in common-), topic: [(-list of topics they share-)]}
+*   a. if topic array does not contain (-current topic-) then $push to topic and $inc value, else do nothing
+* */
+
 const Nodes =new Mongo.Collection('nodes');
+const RelevantNodes =new Mongo.Collection('nodesWithLinks');
 const Links =new Mongo.Collection('links');
-console.log('nodes count: ', Nodes.find().count());
+const Topics = new Mongo.Collection('topics');
+//console.log('nodes count: ', Nodes.find().count());
 Meteor.startup(() => {
     var Fiber = Npm.require('fibers');
-    // code to run on server at startup
-    if(Nodes.find().count()==0 || Links.find().count()==0){
+    // code to run on server at startup (need to eventually change this conditional)
+    if(Nodes.find().count()==0){
        processData();
+    }
+    //if(Links.find().count()==0){
+        setLinks();
+    //}
+
+Meteor.methods({
+    getLinksFor: function(nodeSet){
+
+    }
+});
+
+ function setLinks(){
+     //1. get node array
+     console.log('setting nodelinks');
+     //var nodeArray = Nodes.find({totalViews:{$gt: 1000}},{limit:300, sort:{totalViews:-1}});
+     var nodeArray = Nodes.find({totalViews:{$gt:'5000'}},{limit:300, sort:{totalViews:-1}});
+     RelevantNodes.remove({});
+     nodeArray.fetch().forEach(function(nodeEntry, index){
+         RelevantNodes.insert(nodeEntry);
+     });
+     //2. get links :)
+     var rNodes = RelevantNodes.find();
+     getLinks(rNodes, function(done){
+         console.log('finished getting links');
+     });
     }
 
 
+
+function getLinks(nodeCursor, callback){
+
+    var nodeTopicDictionary = {};
+    //1. Empty Links Database
+    Links.remove({});
+    var nodeArray = nodeCursor.fetch();
+    console.log('nodeArray length: ', nodeArray.length);
+    nodeArray.forEach(function(node, nodeIndex){
+
+        var nodeTopics = node.nlp.topics;
+        var nodeId = node.idID;
+        nodeTopics.forEach(function(topicWord, twIndex){
+            if(nodeTopicDictionary.hasOwnProperty(topicWord)){
+                if(nodeTopicDictionary[topicWord].indexOf(nodeId)<0){
+                    //prior to adding this id, we want to set up the links between it and all previous ids and add it to the links database
+                    linkIds(nodeTopicDictionary[topicWord],nodeId, topicWord);
+                    nodeTopicDictionary[topicWord].push(nodeId);
+                }else{
+                    //it already exists!
+                }
+
+            }else{
+                //do not create link yet becuase it doesn't hvae something to link to!
+                nodeTopicDictionary[topicWord] = [nodeId];
+            }
+        });
+
+
+    });
+    callback(true);
+
+    function linkIds(idList, idToLinkTo, topic){
+        //for each id in the idList, create a link to the idToLinkTo
+        idList.forEach(function(existingId, index){
+            var sourceId = existingId,
+                targetId = idToLinkTo;
+            var upsertCheck = {source: sourceId, target: targetId};//, topic:[topicName], value:1};
+            var existingLink = Links.findOne(upsertCheck);//.topics;
+            if(existingLink){
+                var existingTopics = existingLink.topics;
+                if(existingTopics.indexOf(topic)<0){
+                    Links.upsert(upsertCheck,{$push:{topics:topic}, $inc:{value:1}});
+                }else{
+                    //topic exists, 909 nevermind!
+                }
+            }else{
+                //link needs to be inserted into db
+                var singleLink = {source: sourceId, target:targetId, topics:[topic], value:1, dateAdded:Date.now()};
+                Links.insert(singleLink);
+            }
+
+        });
+
+    }
+
+}
 function processData() {
     Fiber(function(){
         var fs = Npm.require('fs');
         var nlp = Npm.require('nlp_compromise');
-//var TfIdf = natural.TfIdf;
         var lda = Npm.require('lda');
         var file = process.env.PWD + '/public/data2.csv';
         console.log('processData: ', Date.now());
@@ -32,7 +132,7 @@ function processData() {
             console.log('read file: ', Date.now());
             var results = d.toString('ascii');
             var topicsDictionary = {};
-            var nodes = [];
+            //var nodes = [];
             var links = [];
             Papa.parse(results, {
                 header: true, encoding: 'ascii', step: function (res) {
@@ -56,6 +156,7 @@ function processData() {
                             Fiber(function(){
                                 console.log("going through 'process'");
                             var id = d['_ - _id'];
+                                //getTaggedWords processes the given string for LDA stuff and basic POS tagging. In addition, each topic is added to the Topics database with id
                             var nlpData = getTaggedWords(d['_ - description'] + " " + d['_ - title'] + ".", id);//nlp.text(d['_ - title']);//.sentences[0];
                             //console.log("ms since last timestamp: ", Date.now() - lastTime);
                             lastTime = Date.now();
@@ -81,6 +182,7 @@ function processData() {
                                 tagsTag: d['_ - tags - _ - tag'],
                                 nlp: nlpData
                             };
+
                             //var dataEntry = new function(){
                             //        this.id                 =   (d.hasOwnProperty('_ - id')? d['_ - id']:'');
                             //        this.idID               =   (d.hasOwnProperty('_ - _id')? d['_ - _id']:'');
@@ -104,7 +206,7 @@ function processData() {
                             //        this.nlp                =   nlpData;
                             //};
 
-                            nodes.push(dataEntry);
+                            //nodes.push(dataEntry);
                             Nodes.update(dataEntry, dataEntry, {upsert:true});
                             //});
                             //create links and nodes json for sending to the client:
@@ -113,56 +215,11 @@ function processData() {
                     //}
 
                 }, complete: function (c) {
-                    if (iterationNumber == 0) {
-                        iterationNumber++;
-                        console.log("COMPLETE!");
-                        console.log('topics dictionary: ', topicsDictionary);
-                        for (var topicName in topicsDictionary) {
 
-                            var topicIds = topicsDictionary[topicName];
-
-                            var linkList = createLink(topicIds);
-
-                            //console.log('link list:', linkList);
-
-                            function createLink(list) {
-                                Fiber(function(){
-                                    var oldlinks = [];
-                                    var newlist = [];
-                                    for (var idIndex = 0; idIndex < list.length - 1; idIndex++) {
-                                        if (idIndex + 1 <= list.length - 1) {
-                                            var sourceId = list[idIndex],
-                                                targetId = list[idIndex + 1];
-                                            var link = {source: sourceId, target: targetId, topic:[topicName]};
-                                            var singleLink = {source: sourceId, target:targetId};
-                                            console.log('adding link: ',link);
-                                            oldlinks.push(link);
-                                            Links.update(singleLink,{$push:{topic: topicName}}, {upsert: true});
-                                            if (idIndex > 0) {
-                                                newlist.push(list[idIndex]);
-                                            }
-                                        }
-
-                                    }
-                                    if (list.length > 1) {
-                                        return oldlinks.concat(createLink(newlist));
-                                    } else {
-                                        return oldlinks;
-                                    }
-                                 }).run();
-                            }//end create link
-
-                            links = links.concat(linkList);
-                        }
-                        //var uniqueLinks = checkForDoubles(links);
-                        console.log('links: ', links);
-                        console.log('nodes: ', nodes.length);
-                        //fut['return']([{"nodes":nodes, "links":links}]);
-                    }
+                    console.log('finished processing and adding nodes / topics to database');
 
                 }
             });//end Papa Parse
-
 
             function checkForDoubles(arrayToCheck) {
                 var finalArray = [];
@@ -192,6 +249,7 @@ function processData() {
                 var persons = [];
                 var places = [];
                 var organizations = [];
+                var topics = [];
 
                 //var tfidf = new TfIdf();
                 var sentenceArray = [];
@@ -252,11 +310,13 @@ function processData() {
                         if (shouldAdd > 0) {
                             if (finalTopicWords.indexOf(word) < 0) {
                                 finalTopicWords.push(word);
+
+                                Topics.upsert({topic:word},{$push:{nodeIdList:id}});
+
                                 if (topicsDictionary.hasOwnProperty(word)) {
                                     uniqueAddToArray(id, topicsDictionary[word]);
                                     //topicsDictionary[word].push(id);
                                 } else {
-
                                     topicsDictionary[word] = [id];
                                 }
                             }
@@ -274,7 +334,8 @@ function processData() {
                     verbs: verbs,
                     persons: persons,
                     places: places,
-                    organizations: organizations
+                    organizations: organizations,
+                    topics: finalTopicWords
                 };
             }
 
@@ -289,17 +350,13 @@ function processData() {
                 return dictionary;
 
             }
-
-            //console.log("timestamp, end = return statement: ", Date.now());
-
-            //return fut.wait();
         });
     }).run();//end of Fiber(function(){....
 } // end of processData function
 if(Meteor.isServer){
     console.log('is server');
     Meteor.publish('nodeslinks', function(){
-        return [Nodes.find({}), Links.find({})];//.fetch();
+        return [RelevantNodes.find(), Links.find()];
 
     });
 
@@ -310,6 +367,44 @@ if(Meteor.isServer){
 
 
 
+/*
+* for (var topicName in topicsDictionary) {
 
+ var topicIds = topicsDictionary[topicName];
+
+ var linkList = createLink(topicIds);
+
+ //console.log('link list:', linkList);
+
+ function createLink(list) {
+ Fiber(function(){
+ var oldlinks = [];
+ var newlist = [];
+ for (var idIndex = 0; idIndex < list.length - 1; idIndex++) {
+ if (idIndex + 1 <= list.length - 1) {
+ var sourceId = list[idIndex],
+ targetId = list[idIndex + 1];
+ var link = {source: sourceId, target: targetId, topic:[topicName]};
+ var singleLink = {source: sourceId, target:targetId};
+ console.log('adding link: ',link);
+ oldlinks.push(link);
+ Links.update(singleLink,{$push:{topic: topicName}}, {upsert: true});
+ if (idIndex > 0) {
+ newlist.push(list[idIndex]);
+ }
+ }
+
+ }
+ if (list.length > 1) {
+ return oldlinks.concat(createLink(newlist));
+ } else {
+ return oldlinks;
+ }
+ }).run();
+ }//end create link
+
+ links = links.concat(linkList);
+ }
+* */
 });
 

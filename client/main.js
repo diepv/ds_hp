@@ -4,13 +4,15 @@ import { ReactiveVar } from 'meteor/reactive-var';
 import './main.html';
 //import { Nodes } from '../imports/lib/collections.js';
 //import { Links } from '../imports/lib/collections.js';
-const Nodes = new Mongo.Collection('nodes');
+const Nodes = new Mongo.Collection('nodesWithLinks');
 const Links = new Mongo.Collection('links');
 
  if (Meteor.isClient) {
+
      //counter starts at 0
      //Session.setDefault('counter', 0);
-     Meteor.subscribe("nodeslinks", function(){
+     Meteor.subscribe("nodeslinks", function(ff){
+         console.log('ff', ff);
          console.log("NODES ",Nodes.find().count());
          console.log("Links ",Links.find().count());
          runGraph();
@@ -26,7 +28,7 @@ const Links = new Mongo.Collection('links');
      //    console.log(" J READY");
      //    //console.log("H NODES: ",Nodes.find().count());
      //}
-
+/*
      Template.bubbleGraph.onRendered(function(){
 			 console.log('bubble graph start timestamp : '+Date.now());
         var svgHeight = 1200;
@@ -527,8 +529,7 @@ const Links = new Mongo.Collection('links');
         // }); //end Deps.autorun
 			 console.log('bubble graph end timestamp : '+Date.now());
 
-    });
-
+    });*/
     //Template.networkGraph.onRendered(
         var runGraph = function(){
          //Meteor.call('processData', function(err,d){
@@ -543,21 +544,28 @@ const Links = new Mongo.Collection('links');
              }else{
 
 
-                 var height = 1200;
-                 var width = 1800;
+                 var height = window.innerHeight+400;
+                 var width = window.innerWidth;//+400;
+
+                 //var radiusScale = d3.scale.linear().domain([0, 500, 6000 ]).range([70,180,230]);
+                 var radiusScale = d3.scale.linear().domain([0, 10, 80 ]).range([10,80,200]);
+                 var viewerScale = d3.scale.linear().domain([0,80]).range([10,150]);
+                 var topicColorScale = d3.scale.category10();
+                 var chargeScale = d3.scale.linear().domain([0,40]).range([80,400]);
 
                  var data = d;
 
                  var svg = d3.select("#networkGraph");
+                 var defs = svg.append('defs');
 
-                 svg.attr('height', height)
+                 svg.attr('height', 2*height)
                      .attr('width', width);
 
                  svg.append('rect')
                      .attr('x',0)
                      .attr('y',0)
                      .attr('width',width)
-                     .attr('height', height)
+                     .attr('height', 2*height)
                      .style('stroke','pink')
                      .style('fill','none')
                      .style('stroke-width',2);
@@ -577,42 +585,94 @@ const Links = new Mongo.Collection('links');
                      edges.push({
                          source:sourcenode,
                          target:targetnode,
-                         topic: e.topic,
-                         value: 5
+                         topics: e.topics,
+                         value: e.value
                      });
                  });
                 console.log('rehashed nodes: ',nodes);
                 console.log('rehashed links: ',links);
                  var force = d3.layout.force();
-                 force.charge(-200)
+                 force
                      .gravity(0.05)
-                     .size([width,height]);
+                     .size([width,height+150]);
 
                  force.nodes(data.nodes)
                      .links(edges)
+                     .linkDistance(150)
+                     .alpha(0.8)
+                     .charge(function(d,b){
+                         return "-"+chargeScale(d.currentViewers);
+                     })
                      .start();
 
-                 var viewerScale = d3.scale.linear().domain([0,10000]).range([30,150]);
+
 
                  var nodes = svg.selectAll('.nodeGroup')
                      .data(data.nodes)
                      .enter()
                      .append('g')
-                     .attr('class','nodeGroup')
+                     .attr('class',function(d){
+                         if(radiusScale(d.currentViewers)>=30){
+                             defs.append('pattern')
+                                 .attr('id',function(){
+                                     return d.idID+"-image";
+                                 })
+                                 .attr('height',"1")
+                                 .attr('width',"1")
+                                 .attr("viewBox", "0 0 320 180")
+                                 .attr('preserveAspectRatio','none')
+                                 .append('image')
+                                 //.attr('transform','translate(-45,10)')
+                                 .attr('preserveAspectRatio','none')
+                                 .attr('width','320')
+                                 .attr('height','180')
+                                 .attr('xlink:href',function(){
+                                     return d.imageUrlMedium;
+                                 });
+                         }
+
+                         return 'nodeGroup';
+                     })
                      .call(force.drag);
 
                  var circles = nodes.append('circle')
                      .attr('r', function(d){
-                         return viewerScale(d.currentViewers);
+                         return radiusScale(d.currentViewers);
                      })
-                     .style('stroke','red')
+                     .style('stroke',function(d){
+                         if(d.creationDateDate!==''){
+                             if(new Date(d.creationDateDate) > new Date("2014-01-12T21:02:58.000Z")){
+                                 return 'rgba(20,80,255,0.5)';
+                             }else{
+                                 return 'lightgrey';
+                             }
+                         }
+                     })
                      .style('stroke-width',2)
-                     .style('fill', 'white')
+                     .style('fill', function(d){
+                         if(radiusScale(d.currentViewers)>=30){
+                             return 'url(#'+ d.idID+"-image";
+                         }else{
+                             return 'white';
+                         }
+                     })
                      .attr('class','node');
 
-                 nodes.append('text')
-                     .style('fill','none')
-                     .text(function(d){return d.title;});
+
+                 //var cImages = nodes.append('');
+
+
+
+                 $(".nodeGroup").on("mouseover", function(e){
+                     var itemInquestion =  $(this).find('.nodeLabel')[0];
+                     $(itemInquestion).css('fill','black');
+                     //if($(itemInquestion).css('fill')=='black'){
+                     //    $(itemInquestion).css('fill','none');
+                     //}else{
+                     setTimeout(function(){$(itemInquestion).css('fill','none');},2000);
+                     //}
+                 });
+
 
                  var links = svg.selectAll('.link').data(edges).enter()
                      .append('g')
@@ -620,18 +680,27 @@ const Links = new Mongo.Collection('links');
 
                  links.append('line')
                      .attr('class','linkPath')
-                     .style('stroke', 'black')
+                     .style('stroke', function(d){
+                         return topicColorScale(d.topics.length);
+                     })
                      .style('stroke-width', function(d){
-                         return d.topic.length+3;
+                         return d.topics.length+3;
                      });
 
                  links.append('text')
-                     .attr('class','topicLabel')
+                     .attr('class','topicLabelContainer')
                      .style('fill','blue')
+                     .style('font-size', 16)
                      .text(function(d){
-                         return d.topic;
+                        return d.topics.join(' / ');
                      });
 
+                 nodes.append('text')
+                     .style('fill','none')
+                     .style('font-size', 30)
+                     .style('font-family', 'Georgia')
+                     .attr('class', 'nodeLabel')
+                     .text(function(d){return d.title;});
 
 
 
@@ -642,12 +711,23 @@ const Links = new Mongo.Collection('links');
                           .attr('y1', function(d){ return d.source.y; })
                           .attr('x2', function(d){ return d.target.x; })
                           .attr('y2', function(d){ return d.target.y; });
-                     links.selectAll('.topicLabel')
+
+                     links.selectAll('.topicLabelContainer')
                          .attr('x',function(d){
-                             return d.source.x;
+                             var s = Math.abs(d.source.x - d.target.x);
+                             if(d.source.x > d.target.x){
+                                 return d.source.x - s/2 ;
+                             }else{
+                                 return d.target.x - s/2;
+                             }
                          })
                          .attr('y', function(d){
-                             return d.source.y;
+                             var s = Math.abs(d.source.y - d.target.y);
+                             if(d.source.y > d.target.y){
+                                 return d.source.y - s/2 ;
+                             }else{
+                                 return d.target.y - s/2;
+                             }
                          })
                      ;
 
@@ -675,6 +755,6 @@ const Links = new Mongo.Collection('links');
 ////
 //if (Meteor.isServer) {
 //    Meteor.startup(function () {
-//        // code to run on server at startup
+//
 //    });
 //}
