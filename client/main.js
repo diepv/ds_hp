@@ -614,7 +614,7 @@ Template.body.events({
                 console.log('rehashed links: ',links);
                  var force = d3.layout.force();
                  force
-                     .gravity(0.1)
+                     .gravity(0.2)
                      .size([width,height]);
 
                  force.nodes(data.nodes)
@@ -716,14 +716,21 @@ Template.body.events({
                      .style('font-size', 16)
                      .text(function(d){
                         return d.topics.join(' / ');
+                     })
+                     .on('click', function(e){
+                         e.preventDefault();
                      });
+
 
                  nodes.append('text')
                      .style('fill','none')
                      .style('font-size', 30)
                      .style('font-family', 'Georgia')
                      .attr('class', 'nodeLabel')
-                     .text(function(d){return d.title;});
+                     .text(function(d){return d.title;})
+                     .on('click', function(e){
+                         e.preventDefault();
+                     });
 
 
 
