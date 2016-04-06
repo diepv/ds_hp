@@ -552,13 +552,13 @@ Template.body.events({
 
     });
     //Template.networkGraph.onRendered(
-        var runGraph = function(){
+    var runGraph = function(){
          //Meteor.call('processData', function(err,d){
 
         console.log("NODES" , Nodes.find().count());
-    var d = {'nodes': Nodes.find().fetch(), 'links': Links.find().fetch()};
-         console.log('D! ', d);
-    var err = null;
+        var d = {'nodes': Nodes.find().fetch(), 'links': Links.find().fetch()};
+        console.log('D! ', d);
+        var err = null;
              console.log(err);
              if(err){
                  console.log("ERROR!! :(");
@@ -572,7 +572,7 @@ Template.body.events({
                  var radiusScale = d3.scale.linear().domain([0, 10, 80,1000000 ]).range([5,20,60,90]);
                  var viewerScale = d3.scale.linear().domain([0,80]).range([10,150]);
                  var topicColorScale = d3.scale.category10();
-                 var chargeScale = d3.scale.linear().domain([50,400]).range([80 ,220]);
+                 var chargeScale = d3.scale.linear().domain([5000,1000000]).range([80 ,220]);
 
                  var data = d;
 
@@ -623,8 +623,8 @@ Template.body.events({
                      //.chargeDistance(150)
                      //.alpha(0.5)
                      .charge(function(d,b){
-                         console.log(d.currentViewers);
-                         return "-"+chargeScale(d.currentViewers);
+                         console.log(d.totalViews);
+                         return "-"+chargeScale(d.totalViews);
                      })
                      .start();
 
