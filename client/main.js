@@ -16,7 +16,28 @@ const Links = new Mongo.Collection('links');
          console.log("NODES ",Nodes.find().count());
          console.log("Links ",Links.find().count());
          runGraph();
-     });//, function(){
+     });
+Template.body.events({
+    'click #testFilter':function(e){
+            console.log('clicked filter');
+            //var date = new Date(2015,11,31).toISOString();
+            Meteor.call('getNodesLinksWithFilter', {currentViewers:{$gt:300}},{sort:{currentViewers:1}, limit:20});
+            console.log("new nodes:", Nodes.find());
+
+            //runGraph();
+        Meteor.subscribe("nodeslinks", function(ff){
+            console.log('ff', ff);
+            console.log("NODES ",Nodes.find().count());
+            console.log("Links ",Links.find().count());
+            $("#networkGraph").empty();
+            runGraph();
+        });
+
+    }
+});
+
+
+     //, function(){
          //console.log("NODES! ", Nodes.find().count());
          //console.log(states, states.find(), states.find().fetch());
      //});
@@ -28,7 +49,7 @@ const Links = new Mongo.Collection('links');
      //    console.log(" J READY");
      //    //console.log("H NODES: ",Nodes.find().count());
      //}
-/*
+
      Template.bubbleGraph.onRendered(function(){
 			 console.log('bubble graph start timestamp : '+Date.now());
         var svgHeight = 1200;
@@ -529,7 +550,7 @@ const Links = new Mongo.Collection('links');
         // }); //end Deps.autorun
 			 console.log('bubble graph end timestamp : '+Date.now());
 
-    });*/
+    });
     //Template.networkGraph.onRendered(
         var runGraph = function(){
          //Meteor.call('processData', function(err,d){
@@ -544,21 +565,21 @@ const Links = new Mongo.Collection('links');
              }else{
 
 
-                 var height = window.innerHeight+400;
+                 var height = window.innerHeight;//+400;
                  var width = window.innerWidth;//+400;
 
                  //var radiusScale = d3.scale.linear().domain([0, 500, 6000 ]).range([70,180,230]);
-                 var radiusScale = d3.scale.linear().domain([0, 10, 80 ]).range([10,80,200]);
+                 var radiusScale = d3.scale.linear().domain([0, 10, 80,1000000 ]).range([5,20,60,90]);
                  var viewerScale = d3.scale.linear().domain([0,80]).range([10,150]);
                  var topicColorScale = d3.scale.category10();
-                 var chargeScale = d3.scale.linear().domain([0,40]).range([80,400]);
+                 var chargeScale = d3.scale.linear().domain([50,400]).range([80 ,220]);
 
                  var data = d;
 
                  var svg = d3.select("#networkGraph");
                  var defs = svg.append('defs');
 
-                 svg.attr('height', 2*height)
+                 svg.attr('height', height)
                      .attr('width', width);
 
                  svg.append('rect')
@@ -593,14 +614,16 @@ const Links = new Mongo.Collection('links');
                 console.log('rehashed links: ',links);
                  var force = d3.layout.force();
                  force
-                     .gravity(0.05)
-                     .size([width,height+150]);
+                     .gravity(0.1)
+                     .size([width,height]);
 
                  force.nodes(data.nodes)
                      .links(edges)
-                     .linkDistance(150)
-                     .alpha(0.8)
+                     .linkDistance(120)
+                     //.chargeDistance(150)
+                     //.alpha(0.5)
                      .charge(function(d,b){
+                         console.log(d.currentViewers);
                          return "-"+chargeScale(d.currentViewers);
                      })
                      .start();

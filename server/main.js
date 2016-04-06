@@ -34,33 +34,63 @@ Meteor.startup(() => {
     var Fiber = Npm.require('fibers');
     // code to run on server at startup (need to eventually change this conditional)
     if(Nodes.find().count()==0){
-       processData();
+       processData(function(d){
+           setLinks();
+       });
+
     }
-    //if(Links.find().count()==0){
+    if(Links.find().count()==0){
         setLinks();
-    //}
+    }
+
+function setLinks(){
+    //1. get node array
+    console.log('setting nodelinks');
+
+    var nodeArray = Nodes.find({totalViews:{$gt:5000}},{limit:300, sort:{totalViews:-1}});
+    var rNodes = nodeArray.fetch();
+    if(nodeArray.count()>1){
+        RelevantNodes.remove({});
+        rNodes.forEach(function(nodeEntry, index){
+            RelevantNodes.insert(nodeEntry);
+        });
+        //2. get links :)
+        var rNodes = RelevantNodes.find();
+        getLinks(rNodes, function(done){
+            console.log('finished getting links');
+        });
+    }
+
+}
 
 Meteor.methods({
     getLinksFor: function(nodeSet){
 
+    },
+    getNodesLinksWithFilter: function(filtera, filterb){
+        Fiber(function(){
+            //filter stores the parameters for the find() on MongoCollection
+
+            //1. get nodes according the filter
+                var retrievedNodes = Nodes.find(filtera, filterb);
+            var rNodes = retrievedNodes.fetch();
+            if(retrievedNodes.count()>1) {
+                console.log('retrieved nodes: ', retrievedNodes.count());
+                RelevantNodes.remove({});
+                retrievedNodes.forEach(function (n) {
+                    RelevantNodes.insert(n);
+                });
+                console.log('reset nodes - complete');
+                getLinks(RelevantNodes.find(), function (d) {
+                    console.log('reset links- complete');
+                });
+
+                //2. get links wit hthe given nodeset
+                //3. return data :D
+            }
+        }).run();
     }
 });
-
- function setLinks(){
-     //1. get node array
-     console.log('setting nodelinks');
-     //var nodeArray = Nodes.find({totalViews:{$gt: 1000}},{limit:300, sort:{totalViews:-1}});
-     var nodeArray = Nodes.find({totalViews:{$gt:'5000'}},{limit:300, sort:{totalViews:-1}});
-     RelevantNodes.remove({});
-     nodeArray.fetch().forEach(function(nodeEntry, index){
-         RelevantNodes.insert(nodeEntry);
-     });
-     //2. get links :)
-     var rNodes = RelevantNodes.find();
-     getLinks(rNodes, function(done){
-         console.log('finished getting links');
-     });
-    }
 
 
 
@@ -120,7 +150,8 @@ function getLinks(nodeCursor, callback){
     }
 
 }
-function processData() {
+
+function processData(c) {
     Fiber(function(){
         var fs = Npm.require('fs');
         var nlp = Npm.require('nlp_compromise');
@@ -165,16 +196,16 @@ function processData() {
                                 idID: d['_ - _id'],
                                 live: d['_ - live'],
                                 title: d['_ - title'],
-                                totalViews: d['_ - totalViews'],
+                                totalViews: parseInt(d['_ - totalViews']),
                                 stream: d['_ - streamSource'],
                                 url: d['_ - url'],
                                 status: d['_ - status'],
                                 embedTag: d['_ - embedTag'],
                                 description: d['_ - description'],
-                                currentViewers: d['_ - currentViewers'],
-                                lat: d['_ -lat'],
-                                lon: d['_ - lon'],
-                                viewsTotal: d['_ - views_total'],
+                                currentViewers: parseInt(d['_ - currentViewers']),
+                                lat: parseFloat(d['_ -lat']),
+                                lon: parseFloat(d['_ - lon']),
+                                viewsTotal: parseInt(d['_ - views_total']),
                                 esBroadcaster: d['_ - _es - broadcaster'],
                                 creationDateDate: d['_ - creationDate - $date'],
                                 imageUrlMedium: d['_ - imageUrl - medium'],
@@ -217,6 +248,7 @@ function processData() {
                 }, complete: function (c) {
 
                     console.log('finished processing and adding nodes / topics to database');
+                    c(true);
 
                 }
             });//end Papa Parse
@@ -356,6 +388,9 @@ function processData() {
 if(Meteor.isServer){
     console.log('is server');
     Meteor.publish('nodeslinks', function(){
+
+        //this.changed("nodesWithLinks",)
+
         return [RelevantNodes.find(), Links.find()];
 
     });
